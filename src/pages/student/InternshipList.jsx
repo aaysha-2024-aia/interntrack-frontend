@@ -14,6 +14,7 @@ const getStatusColor = (status) => {
     rejected: "bg-red-100 text-red-700",
     withdrawn: "bg-gray-100 text-gray-700",
   };
+
   return colors[status] || "bg-gray-100 text-gray-700";
 };
 
@@ -22,24 +23,20 @@ const InternshipList = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-useEffect(() => {
-  const loadData = async () => {
-    await fetchInternships();
-    await fetchMyApplications();
-  };
+  const [appliedIds, setAppliedIds] = useState([]);
 
-  loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [search, statusFilter]);
+  // Fetch internships
   const fetchInternships = async () => {
     try {
       setLoading(true);
 
       let url = "/internships?";
+
       if (search) url += `keyword=${search}&`;
       if (statusFilter) url += `status=${statusFilter}&`;
 
       const { data } = await API.get(url);
+
       setInternships(data.internships || []);
     } catch (error) {
       toast.error("Failed to fetch internships");
@@ -48,14 +45,43 @@ useEffect(() => {
     }
   };
 
+  // Fetch user's applications
+  const fetchMyApplications = async () => {
+    try {
+      const { data } = await API.get("/applications/my");
+
+      const ids = (data.applications || []).map(
+        (app) => app.internship?._id
+      );
+
+      setAppliedIds(ids);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  // Load data
+  useEffect(() => {
+    const loadData = async () => {
+      await fetchInternships();
+      await fetchMyApplications();
+    };
+
+    loadData();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, statusFilter]);
+
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this internship?")) return;
 
     try {
       await API.delete(`/internships/${id}`);
+
       toast.success("Deleted successfully");
+
       fetchInternships();
-    } catch {
+    } catch (error) {
       toast.error("Failed to delete");
     }
   };
@@ -64,7 +90,10 @@ useEffect(() => {
     <div className="min-h-screen bg-gray-50">
 
       <nav className="bg-white shadow px-8 py-4 flex justify-between">
-        <Link to="/dashboard" className="font-bold text-indigo-600">
+        <Link
+          to="/dashboard"
+          className="font-bold text-indigo-600 text-xl"
+        >
           InternTrack Pro
         </Link>
 
@@ -80,15 +109,15 @@ useEffect(() => {
         <div className="flex gap-4 mb-6">
           <input
             placeholder="Search..."
+            className="border p-2 rounded w-full"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="border p-2 rounded w-full"
           />
 
           <select
+            className="border p-2 rounded"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="border p-2 rounded"
           >
             <option value="">All</option>
             <option value="pending">Pending</option>
@@ -104,13 +133,31 @@ useEffect(() => {
         ) : (
           <div className="grid md:grid-cols-3 gap-4">
             {internships.map((job) => (
-              <div key={job._id} className="bg-white p-4 rounded shadow">
-                <h2 className="font-bold">{job.role}</h2>
-                <p className="text-indigo-600">{job.company}</p>
+              <div
+                key={job._id}
+                className="bg-white p-4 rounded shadow"
+              >
+                <h2 className="font-bold text-lg">
+                  {job.role}
+                </h2>
 
-                <span className={`inline-block mt-2 px-2 py-1 text-xs rounded ${getStatusColor(job.status)}`}>
+                <p className="text-indigo-600">
+                  {job.company}
+                </p>
+
+                <span
+                  className={`inline-block mt-2 px-2 py-1 text-xs rounded ${getStatusColor(
+                    job.status
+                  )}`}
+                >
                   {job.status}
                 </span>
+
+                {appliedIds.includes(job._id) && (
+                  <div className="mt-2 text-green-600 font-semibold">
+                    ✅ Applied
+                  </div>
+                )}
 
                 <div className="mt-3 flex gap-2">
                   <Link
@@ -127,10 +174,12 @@ useEffect(() => {
                     Delete
                   </button>
                 </div>
+
               </div>
             ))}
           </div>
         )}
+
       </div>
     </div>
   );
