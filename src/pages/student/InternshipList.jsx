@@ -22,11 +22,15 @@ const InternshipList = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+useEffect(() => {
+  const loadData = async () => {
+    await fetchInternships();
+    await fetchMyApplications();
+  };
 
-  useEffect(() => {
-    fetchInternships();
-  }, [search, statusFilter]);
-
+  loadData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [search, statusFilter]);
   const fetchInternships = async () => {
     try {
       setLoading(true);
