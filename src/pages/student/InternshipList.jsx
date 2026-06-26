@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import API from "../../api/axios";
@@ -29,21 +29,24 @@ const InternshipList = () => {
   const [applying, setApplying] = useState(false);
   const [appliedIds, setAppliedIds] = useState([]);
   const [formData, setFormData] = useState({
-    company: "", role: "", location: "",
-    status: "pending", stipend: "", description: "", jobLink: "",
+    company: "",
+    role: "",
+    location: "",
+    status: "pending",
+    stipend: "",
+    description: "",
+    jobLink: "",
   });
 
-  useEffect(() => {
-    fetchInternships();
-    fetchMyApplications();
-  }, [search, statusFilter]);
-
-  const fetchInternships = async () => {
+  // ✅ FIX: useCallback prevents re-creation issues
+  const fetchInternships = useCallback(async () => {
     try {
       setLoading(true);
+
       let url = "/internships?";
       if (search) url += `keyword=${search}&`;
       if (statusFilter) url += `status=${statusFilter}&`;
+
       const { data } = await API.get(url);
       setInternships(data.internships || []);
     } catch (error) {
@@ -51,9 +54,9 @@ const InternshipList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, statusFilter]);
 
-  const fetchMyApplications = async () => {
+  const fetchMyApplications = useCallback(async () => {
     try {
       const { data } = await API.get("/applications/my");
       const ids = (data.applications || []).map((a) => a.internship?._id);
@@ -61,16 +64,26 @@ const InternshipList = () => {
     } catch (error) {
       console.error("Failed to fetch applications");
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchInternships();
+  }, [fetchInternships]);
+
+  useEffect(() => {
+    fetchMyApplications();
+  }, [fetchMyApplications]);
 
   const handleApply = async (e) => {
     e.preventDefault();
     try {
       setApplying(true);
+
       await API.post("/applications", {
         internshipId: selectedInternship._id,
         coverLetter,
       });
+
       toast.success(`Applied to ${selectedInternship.company}!`);
       setShowApplyModal(false);
       setCoverLetter("");
@@ -89,9 +102,20 @@ const InternshipList = () => {
         ...formData,
         stipend: Number(formData.stipend),
       });
+
       toast.success("Internship added!");
       setShowAddModal(false);
-      setFormData({ company: "", role: "", location: "", status: "pending", stipend: "", description: "", jobLink: "" });
+
+      setFormData({
+        company: "",
+        role: "",
+        location: "",
+        status: "pending",
+        stipend: "",
+        description: "",
+        jobLink: "",
+      });
+
       fetchInternships();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to add");
@@ -100,6 +124,7 @@ const InternshipList = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this internship?")) return;
+
     try {
       await API.delete(`/internships/${id}`);
       toast.success("Deleted successfully");
@@ -114,11 +139,20 @@ const InternshipList = () => {
 
       {/* Navbar */}
       <nav className="bg-white shadow px-8 py-4 flex justify-between items-center">
-        <Link to="/dashboard" className="text-2xl font-bold text-indigo-600">InternTrack Pro</Link>
+        <Link to="/dashboard" className="text-2xl font-bold text-indigo-600">
+          InternTrack Pro
+        </Link>
+
         <div className="flex gap-6">
-          <Link to="/dashboard" className="text-gray-600 hover:text-indigo-600">Dashboard</Link>
-          <Link to="/applications" className="text-gray-600 hover:text-indigo-600">Applications</Link>
-          <Link to="/profile" className="text-gray-600 hover:text-indigo-600">Profile</Link>
+          <Link to="/dashboard" className="text-gray-600 hover:text-indigo-600">
+            Dashboard
+          </Link>
+          <Link to="/applications" className="text-gray-600 hover:text-indigo-600">
+            Applications
+          </Link>
+          <Link to="/profile" className="text-gray-600 hover:text-indigo-600">
+            Profile
+          </Link>
         </div>
       </nav>
 
@@ -126,7 +160,10 @@ const InternshipList = () => {
 
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Browse Internships</h1>
+          <h1 className="text-3xl font-bold text-gray-800">
+            Browse Internships
+          </h1>
+
           <button
             onClick={() => setShowAddModal(true)}
             className="bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700"
@@ -135,17 +172,18 @@ const InternshipList = () => {
           </button>
         </div>
 
-        {/* Search + Filter */}
+        {/* Search */}
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <input
             type="text"
             placeholder="Search by company or role..."
-            className="p-3 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="p-3 border rounded-lg w-full"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+
           <select
-            className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="p-3 border rounded-lg"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -157,156 +195,68 @@ const InternshipList = () => {
           </select>
         </div>
 
-        {/* Cards */}
+        {/* Content */}
         {loading ? (
-          <div className="text-center py-20 text-indigo-600 font-semibold">Loading...</div>
+          <div className="text-center py-20">Loading...</div>
         ) : internships.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-gray-400 text-xl mb-4">No internships found</p>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700"
-            >
-              Add Your First Internship
-            </button>
+          <div className="text-center py-20 text-gray-400">
+            No internships found
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {internships.map((job) => {
               const alreadyApplied = appliedIds.includes(job._id);
+
               return (
-                <div key={job._id} className="bg-white p-6 rounded-xl shadow hover:shadow-lg transition">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-800">{job.role}</h2>
-                      <p className="text-indigo-600 font-semibold">{job.company}</p>
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(job.status)}`}>
-                      {job.status}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-500 space-y-1 mb-4">
+                <div key={job._id} className="bg-white p-6 rounded-xl shadow">
+
+                  <h2 className="text-xl font-bold">{job.role}</h2>
+                  <p className="text-indigo-600 font-semibold">{job.company}</p>
+
+                  <div className="mt-3 text-sm text-gray-500">
                     {job.location && <p>📍 {job.location}</p>}
-                    {job.stipend > 0 && <p>💰 ₹{job.stipend?.toLocaleString()}/month</p>}
-                    {job.description && <p className="line-clamp-2 text-gray-400">{job.description}</p>}
-                    <p>📅 {new Date(job.createdAt).toLocaleDateString()}</p>
+                    {job.stipend > 0 && <p>💰 ₹{job.stipend}</p>}
                   </div>
-                  <div className="flex gap-2 flex-wrap">
+
+                  <div className="mt-4 flex gap-2">
                     <Link
                       to={`/internship/${job._id}`}
-                      className="flex-1 text-center bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 text-sm"
+                      className="flex-1 bg-indigo-600 text-white text-center py-2 rounded-lg"
                     >
-                      View Details
+                      View
                     </Link>
+
                     {alreadyApplied ? (
-                      <span className="flex-1 text-center bg-green-100 text-green-700 px-3 py-2 rounded-lg text-sm font-semibold">
-                        ✅ Applied
+                      <span className="flex-1 bg-green-100 text-green-700 text-center py-2 rounded-lg">
+                        Applied
                       </span>
                     ) : (
                       <button
-                        onClick={() => { setSelectedInternship(job); setShowApplyModal(true); }}
-                        className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 text-sm"
+                        onClick={() => {
+                          setSelectedInternship(job);
+                          setShowApplyModal(true);
+                        }}
+                        className="flex-1 bg-green-600 text-white py-2 rounded-lg"
                       >
-                        Apply Now
+                        Apply
                       </button>
                     )}
+
                     <button
                       onClick={() => handleDelete(job._id)}
-                      className="bg-red-100 text-red-600 px-3 py-2 rounded-lg hover:bg-red-200 text-sm"
+                      className="bg-red-100 text-red-600 px-3 py-2 rounded-lg"
                     >
-                      Delete
+                      X
                     </button>
                   </div>
+
                 </div>
               );
             })}
           </div>
         )}
+
       </div>
-
-      {/* Apply Modal */}
-      {showApplyModal && selectedInternship && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-2 text-gray-800">Apply to {selectedInternship.company}</h2>
-            <p className="text-gray-500 mb-6">{selectedInternship.role} • {selectedInternship.location}</p>
-            <form onSubmit={handleApply} className="space-y-4">
-              <textarea
-                placeholder="Cover Letter (optional) — Tell them why you're a great fit..."
-                value={coverLetter}
-                onChange={(e) => setCoverLetter(e.target.value)}
-                rows={5}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <div className="flex gap-3">
-                <button
-                  type="submit"
-                  disabled={applying}
-                  className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold disabled:opacity-50"
-                >
-                  {applying ? "Applying..." : "Submit Application"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setShowApplyModal(false); setCoverLetter(""); }}
-                  className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 font-semibold"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add Internship Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-md max-h-screen overflow-y-auto">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800">Add Internship</h2>
-            <form onSubmit={handleAdd} className="space-y-4">
-              <input type="text" placeholder="Company Name *" required
-                value={formData.company}
-                onChange={(e) => setFormData({...formData, company: e.target.value})}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <input type="text" placeholder="Role/Position *" required
-                value={formData.role}
-                onChange={(e) => setFormData({...formData, role: e.target.value})}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <input type="text" placeholder="Location"
-                value={formData.location}
-                onChange={(e) => setFormData({...formData, location: e.target.value})}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <input type="number" placeholder="Stipend (₹)"
-                value={formData.stipend}
-                onChange={(e) => setFormData({...formData, stipend: e.target.value})}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <textarea placeholder="Description" rows={3}
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <input type="url" placeholder="Job Link (optional)"
-                value={formData.jobLink}
-                onChange={(e) => setFormData({...formData, jobLink: e.target.value})}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <div className="flex gap-3">
-                <button type="submit"
-                  className="flex-1 bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 font-semibold"
-                >Add Internship</button>
-                <button type="button" onClick={() => setShowAddModal(false)}
-                  className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 font-semibold"
-                >Cancel</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
