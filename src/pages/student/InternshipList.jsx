@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import API from "../../api/axios";
@@ -22,24 +22,12 @@ const InternshipList = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showApplyModal, setShowApplyModal] = useState(false);
-  const [selectedInternship, setSelectedInternship] = useState(null);
-  const [coverLetter, setCoverLetter] = useState("");
-  const [applying, setApplying] = useState(false);
-  const [appliedIds, setAppliedIds] = useState([]);
-  const [formData, setFormData] = useState({
-    company: "",
-    role: "",
-    location: "",
-    status: "pending",
-    stipend: "",
-    description: "",
-    jobLink: "",
-  });
 
-  // ✅ FIX: useCallback prevents re-creation issues
-  const fetchInternships = useCallback(async () => {
+  useEffect(() => {
+    fetchInternships();
+  }, [search, statusFilter]);
+
+  const fetchInternships = async () => {
     try {
       setLoading(true);
 
@@ -54,72 +42,6 @@ const InternshipList = () => {
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter]);
-
-  const fetchMyApplications = useCallback(async () => {
-    try {
-      const { data } = await API.get("/applications/my");
-      const ids = (data.applications || []).map((a) => a.internship?._id);
-      setAppliedIds(ids);
-    } catch (error) {
-      console.error("Failed to fetch applications");
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchInternships();
-  }, [fetchInternships]);
-
-  useEffect(() => {
-    fetchMyApplications();
-  }, [fetchMyApplications]);
-
-  const handleApply = async (e) => {
-    e.preventDefault();
-    try {
-      setApplying(true);
-
-      await API.post("/applications", {
-        internshipId: selectedInternship._id,
-        coverLetter,
-      });
-
-      toast.success(`Applied to ${selectedInternship.company}!`);
-      setShowApplyModal(false);
-      setCoverLetter("");
-      fetchMyApplications();
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to apply");
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  const handleAdd = async (e) => {
-    e.preventDefault();
-    try {
-      await API.post("/internships", {
-        ...formData,
-        stipend: Number(formData.stipend),
-      });
-
-      toast.success("Internship added!");
-      setShowAddModal(false);
-
-      setFormData({
-        company: "",
-        role: "",
-        location: "",
-        status: "pending",
-        stipend: "",
-        description: "",
-        jobLink: "",
-      });
-
-      fetchInternships();
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to add");
-    }
   };
 
   const handleDelete = async (id) => {
@@ -129,7 +51,7 @@ const InternshipList = () => {
       await API.delete(`/internships/${id}`);
       toast.success("Deleted successfully");
       fetchInternships();
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete");
     }
   };
@@ -137,125 +59,74 @@ const InternshipList = () => {
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {/* Navbar */}
-      <nav className="bg-white shadow px-8 py-4 flex justify-between items-center">
-        <Link to="/dashboard" className="text-2xl font-bold text-indigo-600">
+      <nav className="bg-white shadow px-8 py-4 flex justify-between">
+        <Link to="/dashboard" className="font-bold text-indigo-600">
           InternTrack Pro
         </Link>
 
         <div className="flex gap-6">
-          <Link to="/dashboard" className="text-gray-600 hover:text-indigo-600">
-            Dashboard
-          </Link>
-          <Link to="/applications" className="text-gray-600 hover:text-indigo-600">
-            Applications
-          </Link>
-          <Link to="/profile" className="text-gray-600 hover:text-indigo-600">
-            Profile
-          </Link>
+          <Link to="/dashboard">Dashboard</Link>
+          <Link to="/applications">Applications</Link>
+          <Link to="/profile">Profile</Link>
         </div>
       </nav>
 
       <div className="p-8">
 
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">
-            Browse Internships
-          </h1>
-
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700"
-          >
-            + Add Internship
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex gap-4 mb-6">
           <input
-            type="text"
-            placeholder="Search by company or role..."
-            className="p-3 border rounded-lg w-full"
+            placeholder="Search..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            className="border p-2 rounded w-full"
           />
 
           <select
-            className="p-3 border rounded-lg"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
+            className="border p-2 rounded"
           >
-            <option value="">All Status</option>
+            <option value="">All</option>
             <option value="pending">Pending</option>
-            <option value="interviewing">Interviewing</option>
             <option value="accepted">Accepted</option>
             <option value="rejected">Rejected</option>
           </select>
         </div>
 
-        {/* Content */}
         {loading ? (
-          <div className="text-center py-20">Loading...</div>
+          <p>Loading...</p>
         ) : internships.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            No internships found
-          </div>
+          <p>No internships found</p>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {internships.map((job) => {
-              const alreadyApplied = appliedIds.includes(job._id);
+          <div className="grid md:grid-cols-3 gap-4">
+            {internships.map((job) => (
+              <div key={job._id} className="bg-white p-4 rounded shadow">
+                <h2 className="font-bold">{job.role}</h2>
+                <p className="text-indigo-600">{job.company}</p>
 
-              return (
-                <div key={job._id} className="bg-white p-6 rounded-xl shadow">
+                <span className={`inline-block mt-2 px-2 py-1 text-xs rounded ${getStatusColor(job.status)}`}>
+                  {job.status}
+                </span>
 
-                  <h2 className="text-xl font-bold">{job.role}</h2>
-                  <p className="text-indigo-600 font-semibold">{job.company}</p>
+                <div className="mt-3 flex gap-2">
+                  <Link
+                    to={`/internship/${job._id}`}
+                    className="bg-indigo-600 text-white px-3 py-1 rounded"
+                  >
+                    View
+                  </Link>
 
-                  <div className="mt-3 text-sm text-gray-500">
-                    {job.location && <p>📍 {job.location}</p>}
-                    {job.stipend > 0 && <p>💰 ₹{job.stipend}</p>}
-                  </div>
-
-                  <div className="mt-4 flex gap-2">
-                    <Link
-                      to={`/internship/${job._id}`}
-                      className="flex-1 bg-indigo-600 text-white text-center py-2 rounded-lg"
-                    >
-                      View
-                    </Link>
-
-                    {alreadyApplied ? (
-                      <span className="flex-1 bg-green-100 text-green-700 text-center py-2 rounded-lg">
-                        Applied
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setSelectedInternship(job);
-                          setShowApplyModal(true);
-                        }}
-                        className="flex-1 bg-green-600 text-white py-2 rounded-lg"
-                      >
-                        Apply
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => handleDelete(job._id)}
-                      className="bg-red-100 text-red-600 px-3 py-2 rounded-lg"
-                    >
-                      X
-                    </button>
-                  </div>
-
+                  <button
+                    onClick={() => handleDelete(job._id)}
+                    className="bg-red-500 text-white px-3 py-1 rounded"
+                  >
+                    Delete
+                  </button>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
-
       </div>
     </div>
   );
